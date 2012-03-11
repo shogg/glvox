@@ -1,6 +1,7 @@
 package glvox
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -49,19 +50,19 @@ func TestOctreeTrace(t *testing.T) {
 	ro := vec3{ 1.0, 1.0, 1.0}
 	rd := vec3{ 1.0, 1.0, 1.0}.Normalize()
 
-	pos := oct.Trace(ro, rd)
+	pos, hit := oct.Trace(ro, rd)
 	exp := vec3{3.0, 3.0, 3.0}
-	if pos != exp {
-		t.Errorf("test1 expected %v, was %v", exp, pos)
+	if pos != exp || !hit {
+		t.Errorf("test1 hit expected at %v, was %v", exp, pos)
 	}
 
 	ro = vec3{ 3.0, 3.0, 3.0}
 	rd = vec3{-1.0,-1.0,-1.0}.Normalize()
 
-	pos = oct.Trace(ro, rd)
+	pos, hit = oct.Trace(ro, rd)
 	exp = vec3{1.0, 1.0, 1.0}
-	if pos != exp {
-		t.Errorf("test2 expected %v, was %v", exp, pos)
+	if pos != exp || !hit {
+		t.Errorf("test2 hit expected at %v, was %v", exp, pos)
 	}
 }
 
@@ -95,26 +96,35 @@ func TestGridTrace(t *testing.T) {
 	ro := vec3{ 1.0, 1.0, 1.0}
 	rd := vec3{ 1.0, 1.0, 1.0}.Normalize()
 
-	pos := g.Trace(ro, rd)
+	pos, hit := g.Trace(ro, rd)
 	exp := vec3{3.0, 3.0, 3.0}
-	if pos != exp {
-		t.Errorf("test1 expected %v, was %v", exp, pos)
+	if pos != exp || !hit {
+		t.Errorf("test1 hit expected at %v, was %v", exp, pos)
 	}
 
 	ro = vec3{ 3.0, 3.0, 3.0}
 	rd = vec3{-1.0,-1.0,-1.0}.Normalize()
 
-	pos = g.Trace(ro, rd)
+	pos, hit = g.Trace(ro, rd)
 	exp = vec3{1.0, 1.0, 1.0}
-	if pos != exp {
-		t.Errorf("test2 expected %v, was %v", exp, pos)
+	if pos != exp || !hit {
+		t.Errorf("test2 hit expected at %v, was %v", exp, pos)
 	}
 }
 
 func TestReadBinvox(t *testing.T) {
 
-	voxels := new(Octree)
-	ReadBinvox("Human Skull.binvox", voxels)
+	voxels := NewOctree()
+	err := ReadBinvox("skull.binvox", voxels)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if voxels.WHD != 256 {
+		t.Error("dimension 256 expected, was", voxels.WHD)
+	}
+
+	fmt.Println("index size", len(voxels.index))
 }
 
 // TODO - BenchmarkOctreeTrace, BenchmarkGridTrace

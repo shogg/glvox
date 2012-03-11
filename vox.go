@@ -1,7 +1,7 @@
 package glvox
 
 import (
-//	"fmt"
+	"fmt"
 )
 
 type Tracer interface {
@@ -9,11 +9,11 @@ type Tracer interface {
 }
 
 type Setter interface {
-	Set(x, y, z int)
+	Set(x, y, z int32)
 }
 
 type Dimensioner interface {
-	Dim(w, h, d int)
+	Dim(w, h, d int32)
 }
 
 type DimSetter interface {
@@ -42,19 +42,28 @@ const (
 	maxSteps = 10
 )
 
-func (oct Octree) Dim(w, h, d int) {
+func NewOctree() *Octree {
+	oct := new(Octree)
+	oct.index = make([]int32, 8)
+	oct.data = make([]float32, 2)
+	return oct
+}
+
+func (oct *Octree) Dim(w, h, d int32) {
 
 	dim := w
 	if h > dim { dim = h }
 	if d > dim { dim = d }
 
-	pow2 := 1
+	pow2 := int32(1)
 	for dim > pow2 { pow2 *= 2 }
 
-	oct.WHD = int32(pow2)
+	oct.WHD = pow2
+
+	fmt.Println(oct.WHD)
 }
 
-func (oct Octree) Trace(ro, rd vec3) (pos vec3, hit bool) {
+func (oct *Octree) Trace(ro, rd vec3) (pos vec3, hit bool) {
 
 	sx := float32(1.0); if rd.x < 0 { sx = -1.0 }
 	sy := float32(1.0); if rd.y < 0 { sy = -1.0 }
@@ -83,7 +92,7 @@ func (oct Octree) Trace(ro, rd vec3) (pos vec3, hit bool) {
 	return
 }
 
-func (oct Octree) Voxel(pos, dir vec3) vox {
+func (oct *Octree) Voxel(pos, dir vec3) vox {
 	x, y, z := int32(pos.x), int32(pos.y), int32(pos.z)
 	if dir.x < 0 { x-- }
 	if dir.y < 0 { y-- }
@@ -98,7 +107,7 @@ func (oct Octree) Voxel(pos, dir vec3) vox {
 	return v
 }
 
-func (oct Octree) find(x, y, z int32) (alpha float32, whd int32) {
+func (oct *Octree) find(x, y, z int32) (alpha float32, whd int32) {
 
 	whd = oct.WHD
 	if x < 0 || x > whd || y < 0 || y > whd || z < 0 || z > whd {
@@ -123,7 +132,9 @@ func (oct Octree) find(x, y, z int32) (alpha float32, whd int32) {
 	return
 }
 
-func (oct Octree) Set(x, y, z int32) {
+func (oct *Octree) Set(x, y, z int32) {
+
+	//fmt.Println("Set", x, y, z)
 
 	whd := oct.WHD
 	if x < 0 || x > whd || y < 0 || y > whd || z < 0 || z > whd {
@@ -140,25 +151,30 @@ func (oct Octree) Set(x, y, z int32) {
 		if y >= whd { offset += 2; y -= whd }
 		if x >= whd { offset += 1; x -= whd }
 
-		i = oct.index[i << 3 + offset]
-		if i == 0 {
+		idx := oct.index[i << 3 + offset]
+		if idx == 0 {
 			if whd > 1 {
-				idx := oct.newIndex()
+				idx = oct.newIndex()
 				oct.index[i << 3 + offset] = idx
 			} else {
 				oct.index[i << 3 + offset] = 1
+
+//			fmt.Printf("%d\t%d: %v %d\n",
+//				whd, i, oct.index[i<<3:i<<3+8], idx)
 			}
 		}
+
+		i = idx
 	}
 }
 
-func (oct Octree) newIndex() int32 {
-	idx := len(oct.index)
+func (oct *Octree) newIndex() int32 {
+	idx := len(oct.index) >> 3
 	oct.index = append(oct.index, 0, 0, 0, 0,  0, 0, 0, 0)
 	return int32(idx)
 }
 
-func (g Grid) Trace(ro, rd vec3) (pos vec3, hit bool) {
+func (g *Grid) Trace(ro, rd vec3) (pos vec3, hit bool) {
 
 	sx := float32(1.0); if rd.x < 0 { sx = -1.0 }
 	sy := float32(1.0); if rd.y < 0 { sy = -1.0 }
@@ -187,7 +203,7 @@ func (g Grid) Trace(ro, rd vec3) (pos vec3, hit bool) {
 	return
 }
 
-func (g Grid) Voxel(pos, dir vec3) vox {
+func (g *Grid) Voxel(pos, dir vec3) vox {
 	x, y, z := int32(pos.x), int32(pos.y), int32(pos.z)
 	if dir.x < 0 { x-- }
 	if dir.y < 0 { y-- }
