@@ -1,6 +1,7 @@
 package glvox
 
 import (
+//	"github.com/shogg/glvox"
 	"fmt"
 	"testing"
 )
@@ -87,22 +88,22 @@ func TestOctree(t *testing.T) {
 			oct.Index[i*9 + 8:i*9 + 9])
 	}
 
-	if v, s := oct.find(0, 0, 0); v != 6 || s != 1 {
+	if v, s := oct.Get(0, 0, 0); v != 6 || s != 1 {
 		t.Errorf("test1 v=%d d=%d", v, s)
 	}
-	if v, s := oct.find(1, 1, 1); v != 1 || s != 1 {
+	if v, s := oct.Get(1, 1, 1); v != 1 || s != 1 {
 		t.Errorf("test2 v=%d d=%d", v, s)
 	}
-	if v, s := oct.find(2, 2, 2); v != 1 || s != 1 {
+	if v, s := oct.Get(2, 2, 2); v != 1 || s != 1 {
 		t.Errorf("test3 v=%d d=%d", v, s)
 	}
-	if v, s := oct.find(3, 3, 3); v != 7 || s != 1 {
+	if v, s := oct.Get(3, 3, 3); v != 7 || s != 1 {
 		t.Errorf("test4 v=%d d=%d", v, s)
 	}
-	if v, s := oct.find(0, 0, 3); v != 1 || s != 2 {
+	if v, s := oct.Get(0, 0, 3); v != 1 || s != 2 {
 		t.Errorf("test5 v=%d d=%d", v, s)
 	}
-	if v, s := oct.find(0, 3, 0); v != 1 || s != 2 {
+	if v, s := oct.Get(0, 3, 0); v != 1 || s != 2 {
 		t.Errorf("test6 v=%d d=%d", v, s)
 	}
 }

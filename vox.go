@@ -40,11 +40,12 @@ type vox struct {
 
 const (
 	maxSteps = 10
+	IdxSize = 9
 )
 
 func NewOctree() *Octree {
 	oct := new(Octree)
-	oct.Index = make([]int32, 9)
+	oct.Index = make([]int32, IdxSize)
 	oct.data = make([]float32, 2)
 	return oct
 }
@@ -96,7 +97,7 @@ func (oct *Octree) Voxel(pos, dir vec3) vox {
 	if dir.y < 0 { y-- }
 	if dir.z < 0 { z-- }
 
-	val, size := oct.find(x, y, z)
+	val, size := oct.Get(x, y, z)
 	alpha := oct.data[val]
 
 	s := float32(size) * .5
@@ -106,7 +107,7 @@ func (oct *Octree) Voxel(pos, dir vec3) vox {
 	return v
 }
 
-func (oct *Octree) find(x, y, z int32) (val int32, whd int32) {
+func (oct *Octree) Get(x, y, z int32) (val int32, whd int32) {
 
 	whd = oct.WHD
 	if x < 0 || x > whd || y < 0 || y > whd || z < 0 || z > whd {
@@ -116,7 +117,7 @@ func (oct *Octree) find(x, y, z int32) (val int32, whd int32) {
 	var i, off int32 = 0, 0
 	for whd > 1 {
 
-		val = oct.Index[i*9 + 8]
+		val = oct.Index[i*IdxSize + 8]
 		if val != -1 {
 			return val, whd
 		}
@@ -128,7 +129,7 @@ func (oct *Octree) find(x, y, z int32) (val int32, whd int32) {
 		if y >= whd { off += 2; y -= whd }
 		if x >= whd { off += 1; x -= whd }
 
-		i = oct.Index[i*9 + off]
+		i = oct.Index[i*IdxSize + off]
 		if i == 0 { panic("data corrupted") }
 	}
 
@@ -149,13 +150,13 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 		whd >>= 1
 		off = 0
 
-		val := oct.Index[i*9 + 8]
+		val := oct.Index[i*IdxSize + 8]
 		if val == v { return }
 
-		oct.Index[i*9 + 8] = -1
+		oct.Index[i*IdxSize + 8] = -1
 		if val != -1 && whd == 1 {
 			for o := int32(0); o < 8; o++ {
-				oct.Index[i*9 + o] = val
+				oct.Index[i*IdxSize + o] = val
 			}
 		}
 
@@ -163,14 +164,14 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 		if y >= whd { off += 2; y -= whd }
 		if x >= whd { off += 1; x -= whd }
 
-		idx := oct.Index[i*9 + off]
+		idx := oct.Index[i*IdxSize + off]
 		if idx == 0 || idx == val {
 			if whd > 1 {
 				idx = oct.newIndex()
-				oct.Index[i*9 + off] = idx
-				oct.Index[idx*9 + 8] = v
+				oct.Index[i*IdxSize + off] = idx
+				oct.Index[idx*IdxSize + 8] = v
 			} else {
-				oct.Index[i*9 + off] = v
+				oct.Index[i*IdxSize + off] = v
 			}
 		}
 
@@ -179,7 +180,7 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 }
 
 func (oct *Octree) newIndex() int32 {
-	idx := len(oct.Index) / 9
+	idx := len(oct.Index) / IdxSize
 	oct.Index = append(oct.Index, 0, 0, 0, 0,  0, 0, 0, 0,  0)
 	return int32(idx)
 }
