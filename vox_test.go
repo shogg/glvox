@@ -27,20 +27,6 @@ var (
 		0.0, 0.0, 0.0, 0.0,
 		0.0, 0.0, 0.0, 1.0,
 	}
-
-	index = []int32 {
-	// 4x4x4
-	//  x  x  x  x  X  X  X  X
-	//  y  y  Y  Y  y  y  Y  Y
-	//  z  Z  z  Z  z  Z  z  Z
-		1, 0, 0, 0, 0, 0, 0, 2, // 0
-
-	// 2x2x2 xyz
-		6, 0, 0, 0, 0, 0, 0, 0, // 1 * 8
-
-	// 2x2x2 XYZ
-		0, 0, 0, 0, 0, 0, 0, 7, // 2 * 8
-	}
 )
 
 func buildOctree() *Octree {
@@ -95,9 +81,10 @@ func TestOctree(t *testing.T) {
 
 	oct := buildOctree()
 
-	for i := 0; i < len(oct.index) / 9; i++ {
-		fmt.Printf("%d: %v %v\n",
-			i, oct.index[i*9:i*9 + 8], oct.index[i*9+8:i*9+9])
+	for i := 0; i < len(oct.Index) / 9; i++ {
+		fmt.Printf("%d: %v %v\n", i,
+			oct.Index[i*9:i*9 + 8],
+			oct.Index[i*9 + 8:i*9 + 9])
 	}
 
 	if v, s := oct.find(0, 0, 0); v != 6 || s != 1 {
@@ -142,20 +129,3 @@ func TestGridTrace(t *testing.T) {
 		t.Errorf("test2 hit expected at %v, was %v", exp, pos)
 	}
 }
-
-func TestReadBinvox(t *testing.T) {
-
-	voxels := NewOctree()
-	err := ReadBinvox("skull.binvox", voxels)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if voxels.WHD != 256 {
-		t.Error("dimension 256 expected, was", voxels.WHD)
-	}
-
-	fmt.Println("index size", len(voxels.index))
-}
-
-// TODO - BenchmarkOctreeTrace, BenchmarkGridTrace

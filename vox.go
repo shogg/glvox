@@ -22,7 +22,7 @@ type DimSetter interface {
 }
 
 type Octree struct {
-	index []int32
+	Index []int32
 	data []float32
 	WHD int32
 }
@@ -44,7 +44,7 @@ const (
 
 func NewOctree() *Octree {
 	oct := new(Octree)
-	oct.index = make([]int32, 9)
+	oct.Index = make([]int32, 9)
 	oct.data = make([]float32, 2)
 	return oct
 }
@@ -116,7 +116,7 @@ func (oct *Octree) find(x, y, z int32) (val int32, whd int32) {
 	var i, off int32 = 0, 0
 	for whd > 1 {
 
-		val = oct.index[i*9 + 8]
+		val = oct.Index[i*9 + 8]
 		if val != -1 {
 			return val, whd
 		}
@@ -128,7 +128,7 @@ func (oct *Octree) find(x, y, z int32) (val int32, whd int32) {
 		if y >= whd { off += 2; y -= whd }
 		if x >= whd { off += 1; x -= whd }
 
-		i = oct.index[i*9 + off]
+		i = oct.Index[i*9 + off]
 		if i == 0 { panic("data corrupted") }
 	}
 
@@ -149,13 +149,13 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 		whd >>= 1
 		off = 0
 
-		val := oct.index[i*9 + 8]
+		val := oct.Index[i*9 + 8]
 		if val == v { return }
 
-		oct.index[i*9 + 8] = -1
+		oct.Index[i*9 + 8] = -1
 		if val != -1 && whd == 1 {
 			for o := int32(0); o < 8; o++ {
-				oct.index[i*9 + o] = val
+				oct.Index[i*9 + o] = val
 			}
 		}
 
@@ -163,14 +163,14 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 		if y >= whd { off += 2; y -= whd }
 		if x >= whd { off += 1; x -= whd }
 
-		idx := oct.index[i*9 + off]
+		idx := oct.Index[i*9 + off]
 		if idx == 0 || idx == val {
 			if whd > 1 {
 				idx = oct.newIndex()
-				oct.index[i*9 + off] = idx
-				oct.index[idx*9 + 8] = v
+				oct.Index[i*9 + off] = idx
+				oct.Index[idx*9 + 8] = v
 			} else {
-				oct.index[i*9 + off] = v
+				oct.Index[i*9 + off] = v
 			}
 		}
 
@@ -179,8 +179,8 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 }
 
 func (oct *Octree) newIndex() int32 {
-	idx := len(oct.index) / 9
-	oct.index = append(oct.index, 0, 0, 0, 0,  0, 0, 0, 0,  0)
+	idx := len(oct.Index) / 9
+	oct.Index = append(oct.Index, 0, 0, 0, 0,  0, 0, 0, 0,  0)
 	return int32(idx)
 }
 
