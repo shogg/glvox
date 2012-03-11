@@ -1,7 +1,7 @@
 package glvox
 
 import (
-	"fmt"
+//	"fmt"
 )
 
 type Tracer interface {
@@ -9,7 +9,7 @@ type Tracer interface {
 }
 
 type Setter interface {
-	Set(x, y, z int32)
+	Set(x, y, z int32, v int32)
 }
 
 type Dimensioner interface {
@@ -44,7 +44,7 @@ const (
 
 func NewOctree() *Octree {
 	oct := new(Octree)
-	oct.index = make([]int32, 8)
+	oct.index = make([]int32, 9)
 	oct.data = make([]float32, 2)
 	return oct
 }
@@ -59,8 +59,6 @@ func (oct *Octree) Dim(w, h, d int32) {
 	for dim > pow2 { pow2 *= 2 }
 
 	oct.WHD = pow2
-
-	fmt.Println(oct.WHD)
 }
 
 func (oct *Octree) Trace(ro, rd vec3) (pos vec3, hit bool) {
@@ -98,7 +96,8 @@ func (oct *Octree) Voxel(pos, dir vec3) vox {
 	if dir.y < 0 { y-- }
 	if dir.z < 0 { z-- }
 
-	alpha, size := oct.find(x, y, z)
+	val, size := oct.find(x, y, z)
+	alpha := oct.data[val]
 
 	s := float32(size) * .5
 	center := vec3{float32(x), float32(y), float32(z)}.Plus(vec3{s, s, s})
@@ -107,60 +106,71 @@ func (oct *Octree) Voxel(pos, dir vec3) vox {
 	return v
 }
 
-func (oct *Octree) find(x, y, z int32) (alpha float32, whd int32) {
+func (oct *Octree) find(x, y, z int32) (val int32, whd int32) {
 
 	whd = oct.WHD
 	if x < 0 || x > whd || y < 0 || y > whd || z < 0 || z > whd {
 		return
 	}
 
-	var i, offset int32 = 0, 0
+	var i, off int32 = 0, 0
 	for whd > 1 {
 
+		val = oct.index[i*9 + 8]
+		if val != -1 {
+			return val, whd
+		}
+
 		whd >>= 1
-		offset = 0
+		off = 0
 
-		if z >= whd { offset += 4; z -= whd }
-		if y >= whd { offset += 2; y -= whd }
-		if x >= whd { offset += 1; x -= whd }
+		if z >= whd { off += 4; z -= whd }
+		if y >= whd { off += 2; y -= whd }
+		if x >= whd { off += 1; x -= whd }
 
-		i = oct.index[i << 3 + offset]
-		if i == 0 { return }
+		i = oct.index[i*9 + off]
+		if i == 0 { panic("data corrupted") }
 	}
 
-	alpha = oct.data[i]
+	val = i
 	return
 }
 
-func (oct *Octree) Set(x, y, z int32) {
-
-	//fmt.Println("Set", x, y, z)
+func (oct *Octree) Set(x, y, z int32, v int32) {
 
 	whd := oct.WHD
 	if x < 0 || x > whd || y < 0 || y > whd || z < 0 || z > whd {
 		return
 	}
 
-	var i, offset int32 = 0, 0
+	var i, off int32 = 0, 0
 	for whd > 1 {
 
 		whd >>= 1
-		offset = 0
+		off = 0
 
-		if z >= whd { offset += 4; z -= whd }
-		if y >= whd { offset += 2; y -= whd }
-		if x >= whd { offset += 1; x -= whd }
+		val := oct.index[i*9 + 8]
+		if val == v { return }
 
-		idx := oct.index[i << 3 + offset]
-		if idx == 0 {
+		oct.index[i*9 + 8] = -1
+		if val != -1 && whd == 1 {
+			for o := int32(0); o < 8; o++ {
+				oct.index[i*9 + o] = val
+			}
+		}
+
+		if z >= whd { off += 4; z -= whd }
+		if y >= whd { off += 2; y -= whd }
+		if x >= whd { off += 1; x -= whd }
+
+		idx := oct.index[i*9 + off]
+		if idx == 0 || idx == val {
 			if whd > 1 {
 				idx = oct.newIndex()
-				oct.index[i << 3 + offset] = idx
+				oct.index[i*9 + off] = idx
+				oct.index[idx*9 + 8] = v
 			} else {
-				oct.index[i << 3 + offset] = 1
-
-//			fmt.Printf("%d\t%d: %v %d\n",
-//				whd, i, oct.index[i<<3:i<<3+8], idx)
+				oct.index[i*9 + off] = v
 			}
 		}
 
@@ -169,8 +179,8 @@ func (oct *Octree) Set(x, y, z int32) {
 }
 
 func (oct *Octree) newIndex() int32 {
-	idx := len(oct.index) >> 3
-	oct.index = append(oct.index, 0, 0, 0, 0,  0, 0, 0, 0)
+	idx := len(oct.index) / 9
+	oct.index = append(oct.index, 0, 0, 0, 0,  0, 0, 0, 0,  0)
 	return int32(idx)
 }
 

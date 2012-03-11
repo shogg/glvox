@@ -1,7 +1,7 @@
 package glvox
 
 import (
-	"fmt"
+//	"fmt"
 	"bufio"
 	"io"
 	"os"
@@ -54,7 +54,6 @@ func ReadBinvox(filename string, voxels DimSetter) (err error) {
 		return
 	}
 
-	fmt.Println(w, h, d)
 	voxels.Dim(int32(w), int32(h), int32(d))
 
 	x, y, z := 0, 0, 0
@@ -74,9 +73,7 @@ func ReadBinvox(filename string, voxels DimSetter) (err error) {
 
 		for i := 0; i < int(cnt); i++ {
 
-			if val == 1 {
-				voxels.Set(int32(x), int32(y), int32(z))
-			}
+			voxels.Set(int32(x), int32(y), int32(z), int32(val))
 
 			x++
 			if x >= w {
