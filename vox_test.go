@@ -28,13 +28,20 @@ var (
 		0.0, 0.0, 0.0, 0.0,
 		0.0, 0.0, 0.0, 1.0,
 	}
+
+	data1 = []float32 {
+		0.0, 0.0, 0.0, 0.0, // 0..3
+		0.0, 0.0, 6.0, 7.0,	// 4..7
+		0.0, 0.0, 0.0, 0.0, // 8..11
+		0.0, 0.0, 0.0, 0.0, // 12..15
+	}
 )
 
 func buildOctree() *Octree {
 
 	oct := NewOctree()
 	oct.Dim(4, 4, 4)
-	oct.data = data
+	oct.data = data1
 
 	for z := int32(0); z < 4; z++ {
 		for y := int32(0); y < 4; y++ {
@@ -55,13 +62,12 @@ func buildOctree() *Octree {
 	return oct
 }
 
-func TestOctreeTrace(t *testing.T) {
+func TestTraceOctree(t *testing.T) {
 
 	oct := buildOctree()
 
 	ro := vec3{ 1.0, 1.0, 1.0}
 	rd := vec3{ 1.0, 1.0, 1.0}.Normalize()
-
 	pos, hit := oct.Trace(ro, rd)
 	exp := vec3{3.0, 3.0, 3.0}
 	if pos != exp || !hit {
@@ -70,15 +76,32 @@ func TestOctreeTrace(t *testing.T) {
 
 	ro = vec3{ 3.0, 3.0, 3.0}
 	rd = vec3{-1.0,-1.0,-1.0}.Normalize()
-
 	pos, hit = oct.Trace(ro, rd)
 	exp = vec3{1.0, 1.0, 1.0}
 	if pos != exp || !hit {
 		t.Errorf("test2 hit expected at %v, was %v", exp, pos)
 	}
+
+	fmt.Println("test3")
+	ro = vec3{-10.0,-10.0,-10.0}
+	rd = vec3{ 1.0, 1.0, 1.0}.Normalize()
+	pos, hit = oct.Trace(ro, rd)
+	exp = vec3{0.0, 0.0, 0.0}
+	if pos != exp || !hit {
+		t.Errorf("test3 hit expected at %v, was %v", exp, pos)
+	}
+
+	fmt.Println("test4")
+	ro = vec3{ 10.0, 10.0, 10.0}
+	rd = vec3{-1.0,-1.0,-1.0}.Normalize()
+	pos, hit = oct.Trace(ro, rd)
+	exp = vec3{4.0, 4.0, 4.0}
+	if pos != exp || !hit {
+		t.Errorf("test4 hit expected at %v, was %v", exp, pos)
+	}
 }
 
-func TestOctree(t *testing.T) {
+func TestOctreeGet(t *testing.T) {
 
 	oct := buildOctree()
 
@@ -108,7 +131,7 @@ func TestOctree(t *testing.T) {
 	}
 }
 
-func TestGridTrace(t *testing.T) {
+func TestTraceGrid(t *testing.T) {
 
 	g := Grid{data, 4, 4, 4}
 

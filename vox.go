@@ -1,7 +1,7 @@
 package glvox
 
 import (
-//	"fmt"
+	"fmt"
 )
 
 type Tracer interface {
@@ -64,44 +64,110 @@ func (oct *Octree) Dim(w, h, d int32) {
 
 func (oct *Octree) Trace(ro, rd vec3) (pos vec3, hit bool) {
 
-	sx := float32(1.0); if rd.x < 0 { sx = -1.0 }
-	sy := float32(1.0); if rd.y < 0 { sy = -1.0 }
-	sz := float32(1.0); if rd.z < 0 { sz = -1.0 }
+	var s vec3
+	s.x = float32(1.0); if rd.x < 0 { s.x = -1.0 }
+	s.y = float32(1.0); if rd.y < 0 { s.y = -1.0 }
+	s.z = float32(1.0); if rd.z < 0 { s.z = -1.0 }
 
-	hit = false
-	pos = ro
+	pos, hit = oct.boundingBox(ro, rd)
+	if !hit { return }
+
 	for i := 0; i < maxSteps; i++ {
-		v := oct.Voxel(pos, rd)
+		v := oct.Voxel(pos, s)
+		fmt.Println(pos, "vox", v)
 		if v.alpha > 0.0 { hit = true; return }
 
 		dist := v.d
-		fx := (sx * v.size - dist.x) / rd.x
-		fy := (sy * v.size - dist.y) / rd.y
-		fz := (sz * v.size - dist.z) / rd.z
+		f := s.Mul(v.size).Minus(dist)
+		f.x /= rd.x; f.y /= rd.y; f.z /= rd.z
 
-		f := float32(100.0)
-		if fx > 0.0 && fx < f { f = fx }
-		if fy > 0.0 && fy < f { f = fy }
-		if fz > 0.0 && fz < f { f = fz }
+		fmin := float32(100.0)
+		if f.x > 0.0 && f.x < fmin { fmin = f.x }
+		if f.y > 0.0 && f.y < fmin { fmin = f.y }
+		if f.z > 0.0 && f.z < fmin { fmin = f.z }
 
-//		fmt.Printf("f=%f,\tpos=%v\n", f, pos, )
-		pos = pos.Plus(rd.Mul(f))
+		pos = pos.Plus(rd.Mul(fmin))
 	}
+
+	return
+}
+
+func (oct *Octree) boundingBox(p, d vec3) (pos vec3, hit bool) {
+
+	size := float32(oct.WHD)
+
+	if	p.x >= 0.0 && p.x <= size &&
+		p.y >= 0.0 && p.y <= size &&
+		p.z >= 0.0 && p.z <= size {
+
+		return p, true
+	}
+
+	if d.x > 0.0 {
+		pos, hit = face(p, d, 0.0, size, 0)
+		if hit { return }
+	} else {
+		pos, hit = face(p, d, size, size, 0)
+		if hit { return }
+	}
+
+	if d.y > 0.0 {
+		pos, hit = face(p, d, 0.0, size, 1)
+		if hit { return }
+	} else {
+		pos, hit = face(p, d, size, size, 1)
+		if hit { return }
+	}
+
+	if d.z > 0.0 {
+		pos, hit = face(p, d, 0.0, size, 3)
+		if hit { return }
+	} else {
+		pos, hit = face(p, d, size, size, 3)
+		if hit { return }
+	}
+
+	return
+}
+
+func face(p, d vec3, off, size float32, axis int) (pos vec3, hit bool) {
+
+	var plane, normal vec3
+	switch axis {
+	case 0:
+		plane = vec3{off, 0.0, 0.0}
+		normal = vec3{1.0, 0.0, 0.0}
+	case 1:
+		plane = vec3{0.0, off, 0.0}
+		normal = vec3{0.0, 1.0, 0.0}
+	case 2:
+		plane = vec3{0.0, 0.0, off}
+		normal = vec3{0.0, 0.0, 1.0}
+	}
+
+	f := plane.Minus(p).Dot(normal) / d.Dot(normal)
+	pos = p.Plus(d.Mul(f))
+
+	hit = pos.x >= 0 && pos.x <= size &&
+		pos.y >= 0 && pos.y <= size &&
+		pos.z >= 0 && pos.z <= size
 
 	return
 }
 
 func (oct *Octree) Voxel(pos, dir vec3) vox {
 	x, y, z := int32(pos.x), int32(pos.y), int32(pos.z)
-	if dir.x < 0 { x-- }
-	if dir.y < 0 { y-- }
-	if dir.z < 0 { z-- }
+	if dir.x < 0.0 { x-- }
+	if dir.y < 0.0 { y-- }
+	if dir.z < 0.0 { z-- }
 
 	val, size := oct.Get(x, y, z)
 	alpha := oct.data[val]
 
-	s := float32(size) * .5
-	center := vec3{float32(x), float32(y), float32(z)}.Plus(vec3{s, s, s})
+	s := float32(size) / 2.0
+	center :=
+		vec3{float32(x), float32(y), float32(z)}.Plus(
+		vec3{s, s, s})
 	dist := pos.Minus(center)
 	v := vox{dist, s, alpha}
 	return v
@@ -110,7 +176,7 @@ func (oct *Octree) Voxel(pos, dir vec3) vox {
 func (oct *Octree) Get(x, y, z int32) (val int32, whd int32) {
 
 	whd = oct.WHD
-	if x < 0 || x > whd || y < 0 || y > whd || z < 0 || z > whd {
+	if x < 0 || x >= whd || y < 0 || y >= whd || z < 0 || z >= whd {
 		return
 	}
 
@@ -140,7 +206,7 @@ func (oct *Octree) Get(x, y, z int32) (val int32, whd int32) {
 func (oct *Octree) Set(x, y, z int32, v int32) {
 
 	whd := oct.WHD
-	if x < 0 || x > whd || y < 0 || y > whd || z < 0 || z > whd {
+	if x < 0 || x >= whd || y < 0 || y >= whd || z < 0 || z >= whd {
 		return
 	}
 

@@ -17,8 +17,8 @@ func TestReadBinvox(t *testing.T) {
 		t.Error("dimension 256 expected, was", voxels.WHD)
 	}
 
-	indexCount := len(voxels.Index) / 9
+	indexCount := len(voxels.Index) / glvox.IdxSize
 	if indexCount != 139680 {
-		t.Error("index size expected 139680, was", indexCount)
+		t.Error("index size 139680 expected, was", indexCount)
 	}
 }
