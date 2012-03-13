@@ -132,22 +132,20 @@ func (oct *Octree) boundingBox(p, d vec3) (pos vec3, hit bool) {
 
 func face(p, d vec3, off, size float32, axis int) (pos vec3, hit bool) {
 
-	var plane, normal vec3
+	var f float32
 	switch axis {
 	case 0:
-		plane = vec3{off, 0.0, 0.0}
-		normal = vec3{1.0, 0.0, 0.0}
+		if d.x == 0.0 { return p, false }
+		f = (off - p.x) / d.x
 	case 1:
-		plane = vec3{0.0, off, 0.0}
-		normal = vec3{0.0, 1.0, 0.0}
+		if d.y == 0.0 { return p, false }
+		f = (off - p.y) / d.y
 	case 2:
-		plane = vec3{0.0, 0.0, off}
-		normal = vec3{0.0, 0.0, 1.0}
+		if d.z == 0.0 { return p, false }
+		f = (off - p.z) / d.z
 	}
 
-	f := plane.Minus(p).Dot(normal) / d.Dot(normal)
 	pos = p.Plus(d.Mul(f))
-
 	hit = pos.x >= 0 && pos.x <= size &&
 		pos.y >= 0 && pos.y <= size &&
 		pos.z >= 0 && pos.z <= size
