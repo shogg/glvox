@@ -194,7 +194,6 @@ func (oct *Octree) Get(x, y, z int32) (val int32, whd int32) {
 		if x >= whd { off += 1; x -= whd }
 
 		i = oct.Index[i*IdxSize + off]
-		if i == 0 { panic("data corrupted") }
 	}
 
 	val = i
