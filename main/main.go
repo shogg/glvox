@@ -7,6 +7,8 @@ import (
 	"github.com/shogg/glvox"
 	"io/ioutil"
 	"fmt"
+	"os"
+	"time"
 )
 
 type vec3 [3]float32
@@ -16,6 +18,7 @@ var (
 	width, height = 640, 480
 	prg0 = gl.Program(0)
 	prg gl.Program
+	lastModified time.Time
 
 	vertices = []vec3 {
 		{-1.3,-1.0,-1.0}, // 0      2--3
@@ -65,21 +68,24 @@ func main() {
 func initVoxels() {
 
 	voxels := glvox.NewOctree()
-	glvox.ReadBinvox("skull.binvox", voxels)
-	index := voxels.Index
+//	glvox.ReadBinvox("skull.binvox", voxels)
 
-//	checkMemAlloc(len(index))
+	voxels.Dim(4, 4, 4)
+	voxels.Set(0, 0, 0, 1)
+	voxels.Set(1, 1, 1, 1)
+	voxels.Set(2, 2, 2, 1)
+	voxels.Set(3, 3, 3, 1)
 
 	gl.Enable(gl.TEXTURE_1D)
 	gl.TexImage1D(
 		gl.TEXTURE_1D,	// target
 		0,				// level
-		gl.RGBA16UI,		// internal format
-		1000,		// width
+		gl.RGBA,		// internal format
+		len(voxels.Index),		// width
 		0,				// border
-		gl.RGBA,			// format
+		gl.RGBA,		// format
 		gl.INT,			// type
-		index)			// pixels
+		voxels.Index)	// pixels
 }
 
 func checkMemAlloc(size int) {
@@ -141,6 +147,22 @@ func initShaders() {
 	prg.Use()
 }
 
+func checkShaders() {
+
+	finfo, err := os.Stat("vox.glsl")
+	if err != nil { return }
+
+	t := finfo.ModTime()
+
+	if lastModified.IsZero() { lastModified = t }
+
+	if t.After(lastModified) {
+		lastModified = t
+		prg.Delete()
+		initShaders()
+	}
+}
+
 func readShader(filename string) (s string, err error) {
 
 	data, err := ioutil.ReadFile(filename)
@@ -153,6 +175,8 @@ func readShader(filename string) (s string, err error) {
 func initGl() {
 
 	h := float64(height) / float64(width)
+
+	gl.ShadeModel(gl.FLAT)
 
 	gl.Viewport(0, 0, width, height)
 	gl.MatrixMode(gl.PROJECTION)
@@ -218,6 +242,7 @@ func mainLoop() {
 
 		draw()
 		drawOverlay()
+		checkShaders()
 		sdl.GL_SwapBuffers()
 	}
 }
