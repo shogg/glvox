@@ -248,6 +248,19 @@ func (oct *Octree) newIndex() int32 {
 	return int32(idx)
 }
 
+func (oct *Octree) String() string {
+
+	s := ""
+
+	for i := 0; i < len(oct.Index) / 9; i++ {
+		s += fmt.Sprintf("%d: %v %v\n", i,
+			oct.Index[i*9:i*9 + 8],
+			oct.Index[i*9 + 8:i*9 + 9])
+	}
+
+	return s
+}
+
 func (g *Grid) Trace(ro, rd vec3) (pos vec3, hit bool) {
 
 	sx := float32(1.0); if rd.x < 0 { sx = -1.0 }
