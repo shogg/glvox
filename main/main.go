@@ -61,7 +61,7 @@ func main() {
 
 	initGl()
 	initShaders()
-//	initVoxels()
+	initVoxels()
 	mainLoop()
 }
 
@@ -76,16 +76,33 @@ func initVoxels() {
 	voxels.Set(2, 2, 2, 1)
 	voxels.Set(3, 3, 3, 1)
 
+	for i := 0; i < len(voxels.Index); i++ {
+		voxels.Index[i] = int32(i)
+	}
+
 	gl.Enable(gl.TEXTURE_1D)
+
+	tex := gl.GenTexture()
+	tex.Bind(gl.TEXTURE_1D)
+	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.TexImage1D(
 		gl.TEXTURE_1D,	// target
 		0,				// level
-		gl.RGBA,		// internal format
+		gl.RGBA32F,		// internal format
 		len(voxels.Index),		// width
 		0,				// border
 		gl.RGBA,		// format
 		gl.INT,			// type
 		voxels.Index)	// pixels
+
+	gl.ActiveTexture(gl.TEXTURE0);
+	tex.Bind(gl.TEXTURE_1D)
+
+	location := prg.GetUniformLocation("voxels")
+	location.Uniform1i(0)
+
+	//fmt.Println(voxels)
 }
 
 func checkMemAlloc(size int) {
@@ -143,6 +160,8 @@ func initShaders() {
 	if prg.Get(gl.LINK_STATUS) != gl.TRUE {
 		panic("linker error: " + prg.GetInfoLog())
 	}
+
+	fmt.Println(prg.GetInfoLog())
 
 	prg.Use()
 }

@@ -1,16 +1,10 @@
-//     +---+---+
-//    /   /   /|
-//   +---+---+ +
-//  /   /   /|/|
-// +---+---+ + +
-// |   |   |/|/
-// +---+---+ +
-// |   |   |/
-// +---+---+
+#version 130
 
-varying vec2 texCoord;
+in  vec2 texCoord;
+out vec4 fragColor;
+
 uniform float time;
-uniform sampler1D voxels;
+uniform isampler1D voxels;
 
 vec3 rotateX(vec3 p, float a)
 {
@@ -139,22 +133,30 @@ int get(int x, int y, int z, out int size)
 	return 0;
 }
 
+int octree(int x, int y, int z, out int size)
+{
+	ivec4 idx = texelFetch(voxels, 0, 0);
+
+	if(idx.x == 1 || idx.y == 1 || idx.z == 1 || idx.w == 1) {
+		return 1;
+	}
+
+	return idx.x;
+}
+
 vox voxel(vec3 pos, vec3 dir)
 {
-	int x = floor(pos.x);
-	int y = floor(pos.y);
-	int z = floor(pos.z);
+	int x = int(floor(pos.x));
+	int y = int(floor(pos.y));
+	int z = int(floor(pos.z));
 
 	if(dir.x < 0.0 && abs(fract(pos.x)) == 0.0) { x--; }
 	if(dir.y < 0.0 && abs(fract(pos.y)) == 0.0) { y--; }
 	if(dir.z < 0.0 && abs(fract(pos.z)) == 0.0) { z--; }
 
-/*	if(pos.x - x > 1.00) { discard; }
-	if(pos.y - y > 1.00) { discard; }
-	if(pos.z - z > 1.05) { discard; }
-*/
 	int s;
 	int val = get(x, y, z, s);
+	//int val = octree(x, y, z, s);
 
 	float size = float(s) * .5;
 	vec3 center = vec3(x, y, z) + vec3(size);
@@ -224,7 +226,8 @@ vec3 shade(vec3 pos, vec3 n, vec3 eyePos, vox voxel)
 
 	//vec3 rgb = abs(voxel.dist)*2;
 	vec3 rgb = vec3(voxel.x, voxel.y, voxel.z)*.20;
-	if(length(voxel.dist) > .70) { rgb = vec3(0, 0, 0); }
+	//vec3 rgb = vec3(voxel.alpha*.000000001);
+	//if(length(voxel.dist) > .70) { rgb = vec3(0, 0, 0); }
 	return rgb * diff + spec;
 }
 
@@ -251,6 +254,6 @@ void main(void)
 		rgb = background(d);
 	}
 
-	gl_FragColor = vec4(rgb, 1.0);
+	fragColor = vec4(rgb, 1.0);
 }
 
