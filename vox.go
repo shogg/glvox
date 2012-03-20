@@ -23,12 +23,11 @@ type DimSetter interface {
 
 type Octree struct {
 	Index []int32
-	data []float32
 	WHD int32
 }
 
 type Grid  struct {
-	data []float32
+	data []int32
 	W, H, D int32
 }
 
@@ -39,14 +38,12 @@ type vox struct {
 }
 
 const (
-	maxSteps = 10
-	IdxSize = 9
+	MaxSteps = 10
 )
 
 func NewOctree() *Octree {
 	oct := new(Octree)
-	oct.Index = make([]int32, IdxSize)
-	oct.data = make([]float32, 2)
+	oct.Index = make([]int32, 8)
 	return oct
 }
 
@@ -72,9 +69,9 @@ func (oct *Octree) Trace(ro, rd vec3) (pos vec3, hit bool) {
 	pos, hit = oct.boundingBox(ro, rd)
 	if !hit { return }
 
-	for i := 0; i < maxSteps; i++ {
+	for i := 0; i < MaxSteps; i++ {
 		v := oct.Voxel(pos, s)
-		fmt.Println(pos, "vox", v)
+		//fmt.Println(pos, "vox", v)
 		if v.alpha > 0.0 { hit = true; return }
 
 		dist := v.d
@@ -160,14 +157,13 @@ func (oct *Octree) Voxel(pos, dir vec3) vox {
 	if dir.z < 0.0 { z-- }
 
 	val, size := oct.Get(x, y, z)
-	alpha := oct.data[val]
 
 	s := float32(size) / 2.0
 	center :=
 		vec3{float32(x), float32(y), float32(z)}.Plus(
 		vec3{s, s, s})
 	dist := pos.Minus(center)
-	v := vox{dist, s, alpha}
+	v := vox{dist, s, float32(val)}
 	return v
 }
 
@@ -181,11 +177,6 @@ func (oct *Octree) Get(x, y, z int32) (val int32, whd int32) {
 	var i, off int32 = 0, 0
 	for whd > 1 {
 
-		val = oct.Index[i*IdxSize + 8]
-		if val != -1 {
-			return val, whd
-		}
-
 		whd >>= 1
 		off = 0
 
@@ -193,10 +184,10 @@ func (oct *Octree) Get(x, y, z int32) (val int32, whd int32) {
 		if y >= whd { off += 2; y -= whd }
 		if x >= whd { off += 1; x -= whd }
 
-		i = oct.Index[i*IdxSize + off]
+		i = oct.Index[i*8 + off]
+		if i <= 0 { val = -i; return }
 	}
 
-	val = i
 	return
 }
 
@@ -213,28 +204,19 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 		whd >>= 1
 		off = 0
 
-		val := oct.Index[i*IdxSize + 8]
-		if val == v { return }
-
-		oct.Index[i*IdxSize + 8] = -1
-		if val != -1 && whd == 1 {
-			for o := int32(0); o < 8; o++ {
-				oct.Index[i*IdxSize + o] = val
-			}
-		}
-
 		if z >= whd { off += 4; z -= whd }
 		if y >= whd { off += 2; y -= whd }
 		if x >= whd { off += 1; x -= whd }
 
-		idx := oct.Index[i*IdxSize + off]
-		if idx == 0 || idx == val {
+		idx := oct.Index[i*8 + off]
+		if -idx == v  { return }
+
+		if idx <= 0 {
 			if whd > 1 {
-				idx = oct.newIndex()
-				oct.Index[i*IdxSize + off] = idx
-				oct.Index[idx*IdxSize + 8] = v
+				idx = oct.newIndex(-idx)
+				oct.Index[i*8 + off] = idx
 			} else {
-				oct.Index[i*IdxSize + off] = v
+				oct.Index[i*8 + off] = -v
 			}
 		}
 
@@ -242,23 +224,50 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 	}
 }
 
-func (oct *Octree) newIndex() int32 {
-	idx := len(oct.Index) / IdxSize
-	oct.Index = append(oct.Index, 0, 0, 0, 0,  0, 0, 0, 0,  0)
+func (oct *Octree) newIndex(v int32) int32 {
+	idx := len(oct.Index) / 8
+	oct.Index = append(oct.Index, v, v, v, v,  v, v, v, v)
 	return int32(idx)
 }
 
 func (oct *Octree) String() string {
 
-	s := ""
+	printer := func(n int32) string {
+		if n >= 0 { return fmt.Sprintf("%d", n) }
+		return fmt.Sprintf("%c[1;34;40m%d%c[0;37;40m",
+			0x1b, -n, 0x1b)
+	}
 
-	for i := 0; i < len(oct.Index) / 9; i++ {
-		s += fmt.Sprintf("%d: %v %v\n", i,
-			oct.Index[i*9:i*9 + 8],
-			oct.Index[i*9 + 8:i*9 + 9])
+	s := ""
+	for i := 0; i < len(oct.Index) / 8; i++ {
+		idx := oct.Index[i*8]
+		s += fmt.Sprint(i, ": [", printer(idx))
+		for o := 1; o < 8; o++ {
+			idx := oct.Index[i*8 + o]
+			s += fmt.Sprint(", ", printer(idx))
+		}
+		s += "]\n"
 	}
 
 	return s
+}
+
+func NewGrid() *Grid {
+	g := new(Grid)
+	return g
+}
+
+func (g *Grid) Dim(w, h, d int32) {
+	g.data = make([]int32, w*h*d)
+	g.W = w; g.H = h; g.D = d
+}
+
+func (g *Grid) Set(x, y, z int32, val int32) {
+	g.data[z*g.H*g.W + y*g.W + x] = val
+}
+
+func (g *Grid) Get(x, y, z int32) int32 {
+	return g.data[z*g.H*g.W + y*g.W + x]
 }
 
 func (g *Grid) Trace(ro, rd vec3) (pos vec3, hit bool) {
@@ -269,9 +278,9 @@ func (g *Grid) Trace(ro, rd vec3) (pos vec3, hit bool) {
 
 	hit = false
 	pos = ro
-	for i := 0; i < maxSteps; i++ {
+	for i := 0; i < MaxSteps; i++ {
 		v := g.Voxel(pos, rd)
-		if v.alpha == 1.0 { hit = true; return }
+		if v.alpha > 0.0 { hit = true; return }
 
 		dist := v.d
 		fx := (sx * v.size - dist.x) / rd.x
@@ -283,7 +292,6 @@ func (g *Grid) Trace(ro, rd vec3) (pos vec3, hit bool) {
 		if fy > 0.0 && fy < f { f = fy }
 		if fz > 0.0 && fz < f { f = fz }
 
-//		fmt.Printf("f=%f,\tpos=%v\n", f, pos, )
 		pos = pos.Plus(rd.Mul(f))
 	}
 
@@ -296,14 +304,30 @@ func (g *Grid) Voxel(pos, dir vec3) vox {
 	if dir.y < 0 { y-- }
 	if dir.z < 0 { z-- }
 
-	alpha := float32(0.0)
+	val := int32(0)
 	if x >= 0 && x < g.W && y >= 0 && y < g.H && z >= 0 && z < g.D {
-		alpha = g.data[x + g.D*y + g.W*g.H*z]
+		val = g.Get(x, y, z)
 	}
 
 	s := float32(.5)
 	center := vec3{float32(x), float32(y), float32(z)}.Plus(vec3{s, s, s})
 	dist := pos.Minus(center)
-	v := vox{dist, s, alpha}
+	v := vox{dist, s, float32(val)}
 	return v
+}
+
+func (g *Grid) String() string {
+	s := ""
+
+	for z := int32(0); z < g.D; z++ {
+		for y := int32(0); y < g.H; y++ {
+			for x := int32(0); x < g.W; x++ {
+				s += fmt.Sprint(" ", g.Get(x, y, z))
+			}
+			s += "\n"
+		}
+		s += "\n"
+	}
+
+	return s
 }

@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func TestReadBinvox(t *testing.T) {
+func OffTestReadBinvox(t *testing.T) {
 
 	voxels := glvox.NewOctree()
 	err := glvox.ReadBinvox("skull.binvox", voxels)
@@ -18,7 +18,7 @@ func TestReadBinvox(t *testing.T) {
 		t.Error("dimension 256 expected, was", voxels.WHD)
 	}
 
-	indexCount := len(voxels.Index) / glvox.IdxSize
+	indexCount := len(voxels.Index) / 8
 	if indexCount != 139680 {
 		t.Error("index size 139680 expected, was", indexCount)
 	}
@@ -26,7 +26,7 @@ func TestReadBinvox(t *testing.T) {
 	longJump := int32(0)
 	for i := int32(0); i < int32(indexCount); i++ {
 		for j := int32(0); j < 8; j++ {
-			jump := voxels.Index[i*glvox.IdxSize + j] - i
+			jump := voxels.Index[i*8 + j] - i
 			if jump > longJump { longJump = jump }
 		}
 	}
@@ -35,7 +35,7 @@ func TestReadBinvox(t *testing.T) {
 	avgJump := int32(0)
 	for i := int32(0); i < int32(indexCount); i++ {
 		for j := int32(0); j < 8; j++ {
-			jump := voxels.Index[i*glvox.IdxSize + j] - i
+			jump := voxels.Index[i*8 + j] - i
 			avgJump += jump
 		}
 	}
@@ -57,6 +57,9 @@ func TestReadBinvox(t *testing.T) {
 	fmt.Println("voxels by size:")
 	var sizes = []int32 { 1, 2, 4, 8, 16, 32, 64, 128, 256 }
 	for _, size := range(sizes) {
-		fmt.Printf("%d\t%8d\n", size, countBySize[size])
+		count := countBySize[size]
+		unit := ""
+		if count > 1000 { count /= 1000; unit = "k" }
+		fmt.Printf("%d\t%8d%s\n", size, count, unit)
 	}
 }

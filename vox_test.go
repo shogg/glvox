@@ -6,54 +6,22 @@ import (
 	"testing"
 )
 
-var (
-	data = []float32 {
-		1.0, 0.0, 0.0, 0.0, // 0..3
-		0.0, 0.0, 6.0, 7.0,	// 4..7
-		0.0, 0.0, 0.0, 0.0, // 8..11
-		0.0, 0.0, 0.0, 0.0, // 12..15
-
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 0.0,
-		0.0, 0.0, 0.0, 1.0,
-	}
-
-	data1 = []float32 {
-		0.0, 0.0, 0.0, 0.0, // 0..3
-		0.0, 0.0, 6.0, 7.0,	// 4..7
-		0.0, 0.0, 0.0, 0.0, // 8..11
-		0.0, 0.0, 0.0, 0.0, // 12..15
-	}
-)
-
 func buildOctree() *Octree {
 
 	oct := NewOctree()
 	oct.Dim(4, 4, 4)
-	oct.data = data1
 
 	for z := int32(0); z < 4; z++ {
 		for y := int32(0); y < 4; y++ {
 			for x := int32(0); x < 4; x++ {
-				oct.Set(x, y, z, 1)
+				oct.Set(x, y, z, 0)
 
 				if x == 0 && y == 0 && z == 0 {
-					oct.Set(0, 0, 0, 6)
+					oct.Set(0, 0, 0, 1)
 				}
 
 				if x == 3 && y == 3 && z == 3 {
-					oct.Set(3, 3, 3, 7)
+					oct.Set(3, 3, 3, 2)
 				}
 			}
 		}
@@ -62,7 +30,18 @@ func buildOctree() *Octree {
 	return oct
 }
 
-func TestTraceOctree(t *testing.T) {
+func buildGrid() *Grid {
+
+	g := NewGrid()
+	g.Dim(4, 4, 4)
+
+	g.Set(0, 0, 0, 1)
+	g.Set(3, 3, 3, 2)
+
+	return g
+}
+
+func TestOctreeTrace(t *testing.T) {
 
 	oct := buildOctree()
 
@@ -82,7 +61,6 @@ func TestTraceOctree(t *testing.T) {
 		t.Errorf("test2 hit expected at %v, was %v", exp, pos)
 	}
 
-	fmt.Println("test3")
 	ro = vec3{-10.0,-10.0,-10.0}
 	rd = vec3{ 1.0, 1.0, 1.0}.Normalize()
 	pos, hit = oct.Trace(ro, rd)
@@ -91,7 +69,6 @@ func TestTraceOctree(t *testing.T) {
 		t.Errorf("test3 hit expected at %v, was %v", exp, pos)
 	}
 
-	fmt.Println("test4")
 	ro = vec3{ 10.0, 10.0, 10.0}
 	rd = vec3{-1.0,-1.0,-1.0}.Normalize()
 	pos, hit = oct.Trace(ro, rd)
@@ -101,39 +78,9 @@ func TestTraceOctree(t *testing.T) {
 	}
 }
 
-func TestOctreeGet(t *testing.T) {
+func TestGridTrace(t *testing.T) {
 
-	oct := buildOctree()
-
-	for i := 0; i < len(oct.Index) / 9; i++ {
-		fmt.Printf("%d: %v %v\n", i,
-			oct.Index[i*9:i*9 + 8],
-			oct.Index[i*9 + 8:i*9 + 9])
-	}
-
-	if v, s := oct.Get(0, 0, 0); v != 6 || s != 1 {
-		t.Errorf("test1 v=%d d=%d", v, s)
-	}
-	if v, s := oct.Get(1, 1, 1); v != 1 || s != 1 {
-		t.Errorf("test2 v=%d d=%d", v, s)
-	}
-	if v, s := oct.Get(2, 2, 2); v != 1 || s != 1 {
-		t.Errorf("test3 v=%d d=%d", v, s)
-	}
-	if v, s := oct.Get(3, 3, 3); v != 7 || s != 1 {
-		t.Errorf("test4 v=%d d=%d", v, s)
-	}
-	if v, s := oct.Get(0, 0, 3); v != 1 || s != 2 {
-		t.Errorf("test5 v=%d d=%d", v, s)
-	}
-	if v, s := oct.Get(0, 3, 0); v != 1 || s != 2 {
-		t.Errorf("test6 v=%d d=%d", v, s)
-	}
-}
-
-func TestTraceGrid(t *testing.T) {
-
-	g := Grid{data, 4, 4, 4}
+	g := buildGrid()
 
 	ro := vec3{ 1.0, 1.0, 1.0}
 	rd := vec3{ 1.0, 1.0, 1.0}.Normalize()
@@ -151,5 +98,51 @@ func TestTraceGrid(t *testing.T) {
 	exp = vec3{1.0, 1.0, 1.0}
 	if pos != exp || !hit {
 		t.Errorf("test2 hit expected at %v, was %v", exp, pos)
+	}
+}
+
+func TestOctreeGet(t *testing.T) {
+
+	oct := buildOctree()
+
+	if v, s := oct.Get(0, 0, 0); v != 1 || s != 1 {
+		t.Errorf("test1 v=%d d=%d", v, s)
+	}
+	if v, s := oct.Get(1, 1, 1); v != 0 || s != 1 {
+		t.Errorf("test2 v=%d d=%d", v, s)
+	}
+	if v, s := oct.Get(2, 2, 2); v != 0 || s != 1 {
+		t.Errorf("test3 v=%d d=%d", v, s)
+	}
+	if v, s := oct.Get(3, 3, 3); v != 2 || s != 1 {
+		t.Errorf("test4 v=%d d=%d", v, s)
+	}
+	if v, s := oct.Get(0, 0, 3); v != 0 || s != 2 {
+		t.Errorf("test5 v=%d d=%d", v, s)
+	}
+	if v, s := oct.Get(0, 3, 0); v != 0 || s != 2 {
+		t.Errorf("test6 v=%d d=%d", v, s)
+	}
+}
+
+func TestOctreeGetAll(t *testing.T) {
+
+	oct := buildOctree()
+	grid := buildGrid()
+
+	fmt.Println(grid)
+	fmt.Println(oct)
+
+	for z := int32(0); z < grid.D; z++ {
+		for y := int32(0); y < grid.D; y++ {
+			for x := int32(0); x < grid.D; x++ {
+				expected := grid.Get(x, y, z)
+				actual, _ := oct.Get(x, y, z)
+				if expected != actual {
+					t.Errorf("(%d, %d, %d): expected %d, was %d",
+						x, y, z, expected, actual)
+				}
+			}
+		}
 	}
 }

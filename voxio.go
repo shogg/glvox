@@ -56,7 +56,7 @@ func ReadBinvox(filename string, voxels DimSetter) (err error) {
 
 	voxels.Dim(int32(w), int32(h), int32(d))
 
-	x, y, z := 0, 0, 0
+	x, y, z := int32(0), int32(0), int32(0)
 	for {
 		var val, cnt byte
 
@@ -73,14 +73,14 @@ func ReadBinvox(filename string, voxels DimSetter) (err error) {
 
 		for i := 0; i < int(cnt); i++ {
 
-			voxels.Set(int32(x), int32(y), int32(z), int32(val))
+			voxels.Set(x, y, z, int32(val))
 
 			x++
-			if x >= w {
+			if x >= int32(w) {
 				x = 0; y++
-				if y >= h {
+				if y >= int32(h) {
 					y = 0; z++
-					if z >= d { /* error */ }
+					if z >= int32(d) { /* error */ }
 				}
 			}
 		}
