@@ -6,50 +6,56 @@ import (
 	"fmt"
 )
 
-func OffTestReadBinvox(t *testing.T) {
+func TestReadBinvox(t *testing.T) {
 
 	voxels := glvox.NewOctree()
-	err := glvox.ReadBinvox("skull.binvox", voxels)
+	voxels.Dim(1256, 1256, 1256)
+	err := glvox.ReadBinvox("skull.binvox", voxels, 0, 0, 0)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if voxels.WHD != 256 {
-		t.Error("dimension 256 expected, was", voxels.WHD)
+	if voxels.WHD <= 0 {
+		t.Error("dimension > 0 expected, was", voxels.WHD)
 	}
 
 	indexCount := len(voxels.Index) / 8
-	if indexCount != 139680 {
-		t.Error("index size 139680 expected, was", indexCount)
+	if indexCount != 642216 {
+		t.Error("index size 642216 expected, was", indexCount)
 	}
 
 	longJump := int32(0)
 	for i := int32(0); i < int32(indexCount); i++ {
 		for j := int32(0); j < 8; j++ {
-			jump := voxels.Index[i*8 + j] - i
+			idx := voxels.Index[i<<3 + j]
+			if idx <= 0 { continue; }
+
+			jump := idx - i
 			if jump > longJump { longJump = jump }
 		}
 	}
 	fmt.Println("longest jump", longJump)
 
 	avgJump := int32(0)
+	jumpCount := int32(0)
 	for i := int32(0); i < int32(indexCount); i++ {
 		for j := int32(0); j < 8; j++ {
-			jump := voxels.Index[i*8 + j] - i
-			avgJump += jump
+			idx := voxels.Index[i<<3 + j]
+			if idx <= 0 { continue; }
+
+			avgJump += idx - i
+			jumpCount++
 		}
 	}
-	avgJump /= int32(indexCount * 8)
+	avgJump /= jumpCount
 	fmt.Println("average jump", avgJump)
-
+/*
 	countBySize := make(map [int32] int32)
 	for x := int32(0); x < voxels.WHD; x++ {
 		for y := int32(0); y < voxels.WHD; y++ {
 			for z := int32(0); z < voxels.WHD; z++ {
-				val, size := voxels.Get(x, y, z)
-				if val == 0 {
-					countBySize[size] += 1
-				}
+				_, size := voxels.Get(x, y, z)
+				countBySize[size] += 1
 			}
 		}
 	}
@@ -57,9 +63,9 @@ func OffTestReadBinvox(t *testing.T) {
 	fmt.Println("voxels by size:")
 	var sizes = []int32 { 1, 2, 4, 8, 16, 32, 64, 128, 256 }
 	for _, size := range(sizes) {
-		count := countBySize[size]
+		count := countBySize[size] / (size*size*size)
 		unit := ""
-		if count > 1000 { count /= 1000; unit = "k" }
+//		if count > 10000 { count /= 1000; unit = "k" }
 		fmt.Printf("%d\t%8d%s\n", size, count, unit)
-	}
+	}*/
 }

@@ -209,10 +209,6 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 
 		idx := oct.Index[i*8 + off]
 		if -idx == v { return }
-		if idx == e {
-			oct.Index[i*8 + off] = -v
-			return
-		}
 
 		if idx <= 0 {
 			if whd > 1 {
@@ -231,7 +227,6 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 func (oct *Octree) newIndex(v int32) int32 {
 	idx := len(oct.Index) / 8
 	oct.Index = append(oct.Index, v, v, v, v,  v, v, v, v)
-	//oct.Index = append(oct.Index, e, e, e, e,  e, e, e, e)
 	return int32(idx)
 }
 
@@ -239,7 +234,7 @@ func (oct *Octree) String() string {
 
 	printer := func(n int32) string {
 		if n > 0 { return fmt.Sprintf("%d", n) }
-		return fmt.Sprintf("%c[1;34;40m%d%c[0;37;40m",
+		return fmt.Sprintf("%c[0;37;40m%d%c[1;37;40m",
 			0x1b, -n, 0x1b)
 	}
 
