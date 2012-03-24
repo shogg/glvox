@@ -14,11 +14,17 @@ import (
 type vec3 [3]float32
 type vec2 [2]float32
 
+const (
+	MaxTexBufferSize = 134217728	// 2^27
+)
+
 var (
 	width, height = 640, 480
 	prg0 = gl.Program(0)
 	prg gl.Program
 	lastModified time.Time
+
+	cam *glvox.Cam = glvox.NewCam()
 
 	vertices = []vec3 {
 		{-1.3,-1.0,-1.0}, // 0      2--3
@@ -55,6 +61,8 @@ func main() {
 		panic("Couldn't set video mode: " + sdl.GetError() + "\n")
 	}
 
+	sdl.EnableKeyRepeat(200, 20)
+
 	if err := gl.Init(); err != 0 {
 		panic("gl error")
 	}
@@ -67,66 +75,33 @@ func main() {
 
 func initVoxels() {
 
+	s := int32(164096)
+
 	voxels := glvox.NewOctree()
-//	glvox.ReadBinvox("skull.binvox", voxels)
+	voxels.Dim(s, s, s)
 
-	voxels.Dim(4, 4, 4)
-	voxels.Set(0, 0, 0, 1)
-	voxels.Set(1, 1, 1, 1)
-	voxels.Set(2, 2, 2, 1)
-	voxels.Set(3, 3, 3, 1)
+	glvox.ReadBinvox("skull.binvox", voxels, 896, 896, 896)
 
-	for i := 0; i < len(voxels.Index); i++ {
-		voxels.Index[i] = int32(i)
-	}
+	data := voxels.Index
+	buf := gl.GenBuffer()
+	buf.Bind(gl.TEXTURE_BUFFER)
+	gl.BufferData(gl.TEXTURE_BUFFER, len(data)*4, data, gl.STATIC_DRAW)
 
-	gl.Enable(gl.TEXTURE_1D)
-
+	gl.ActiveTexture(gl.TEXTURE0)
 	tex := gl.GenTexture()
-	tex.Bind(gl.TEXTURE_1D)
-	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.TexImage1D(
-		gl.TEXTURE_1D,	// target
-		0,				// level
-		gl.RGBA32F,		// internal format
-		len(voxels.Index),		// width
-		0,				// border
-		gl.RGBA,		// format
-		gl.INT,			// type
-		voxels.Index)	// pixels
+	tex.Bind(gl.TEXTURE_BUFFER)
+	gl.TexBuffer(gl.TEXTURE_BUFFER, gl.R32I, buf)
 
-	gl.ActiveTexture(gl.TEXTURE0);
-	tex.Bind(gl.TEXTURE_1D)
-
-	location := prg.GetUniformLocation("voxels")
-	location.Uniform1i(0)
-
-	//fmt.Println(voxels)
-}
-
-func checkMemAlloc(size int) {
-
-	gl.Enable(gl.TEXTURE_1D)
-	gl.TexImage1D(
-		gl.PROXY_TEXTURE_1D,
-		0,
-		gl.RGB,
-		size,
-		0,
-		gl.RGB,
-		gl.INT,
-		nil)
+	voxelsLoc := prg.GetUniformLocation("voxels")
+	voxelsLoc.Uniform1i(0)
 
 	var value [1]int32
-	gl.GetTexLevelParameteriv(
-		gl.PROXY_TEXTURE_1D, 0, gl.TEXTURE_WIDTH, value[:])
+	gl.GetIntegerv(gl.MAX_TEXTURE_BUFFER_SIZE, value[:])
+	fmt.Println("max texture buffer size:", value[0]/1024/1024, "MiB")
 
-	width := value[0]
-	if width == 0 {
-		msg, _ := fmt.Print("could not allocate", size, "int32")
-		panic(msg)
-	}
+	sizeLoc := prg.GetUniformLocation("size")
+	sizeLoc.Uniform1i(int(voxels.WHD))
+	fmt.Println("voxel data uploaded:", len(voxels.Index)*8*4/1024/1024, "MiB")
 }
 
 func initShaders() {
@@ -210,14 +185,6 @@ func initGl() {
 	gl.EnableClientState(gl.TEXTURE_COORD_ARRAY)
 	gl.VertexPointer(3, gl.FLOAT, 0, vertices)
 	gl.TexCoordPointer(2, gl.FLOAT, 0, texCoords)
-
-	var value [1]int32
-	gl.GetIntegerv(gl.MAX_TEXTURE_SIZE, value[:])
-	fmt.Println("max texture size", value[0])
-	gl.GetIntegerv(gl.MAX_3D_TEXTURE_SIZE, value[:])
-	fmt.Println("max 3d texture size", value[0])
-	gl.GetIntegerv(gl.MAX_SAMPLES, value[:])
-	fmt.Println("max samples", value[0])
 }
 
 func draw() {
@@ -249,29 +216,72 @@ func mainLoop() {
 				done = true
 				break
 			case *sdl.KeyboardEvent:
-				key := e.(*sdl.KeyboardEvent).Keysym.Sym
-				if key == sdl.K_RETURN {
-					done = true
-					break
-				} else {
-					handleKey(key)
-				}
+				keyEvent := e.(*sdl.KeyboardEvent)
+				done = handleKey(keyEvent)
 			}
 		}
 
+		updateShaderParams()
 		draw()
 		drawOverlay()
-		checkShaders()
 		sdl.GL_SwapBuffers()
+		checkShaders()
 	}
 }
 
-func handleKey(key uint32) {
+func updateShaderParams() {
+
+	camPos := prg.GetUniformLocation("cam.pos")
+	camPos.Uniform3f(cam.Pos.X, cam.Pos.Y, cam.Pos.Z)
+
+	camDir := prg.GetUniformLocation("cam.dir")
+	camDir.Uniform3f(cam.Dir.X, cam.Dir.Y, cam.Dir.Z)
+
+	camUp := prg.GetUniformLocation("cam.up")
+	camUp.Uniform3f(cam.Up.X, cam.Up.Y, cam.Up.Z)
+
+	camLeft := prg.GetUniformLocation("cam.left")
+	camLeft.Uniform3f(cam.Left.X, cam.Left.Y, cam.Left.Z)
+}
+
+func handleKey(e *sdl.KeyboardEvent) (done bool) {
+
+	key := e.Keysym.Sym
+	mod := e.Keysym.Mod
+
+	if key == sdl.K_RETURN { done = true }
+
+	var d float32 = .1
+	if mod & sdl.KMOD_LSHIFT != 0 {
+		d = 10.0
+	}
+
 	switch key {
 	case sdl.K_LEFT:
+		if mod & sdl.KMOD_LCTRL != 0 {
+			cam.Yaw(-.05)
+		} else {
+			cam.Strafe(d)
+		}
 	case sdl.K_RIGHT:
+		if mod & sdl.KMOD_LCTRL != 0 {
+			cam.Yaw( .05)
+		} else {
+			cam.Strafe(-1.0*d)
+		}
 	case sdl.K_UP:
+		if mod & sdl.KMOD_LCTRL != 0 {
+			cam.Pitch( .05)
+		} else {
+			cam.Move(d)
+		}
 	case sdl.K_DOWN:
+		if mod & sdl.KMOD_LCTRL != 0 {
+			cam.Pitch(-.05)
+		} else {
+			cam.Move(-1.0*d)
+		}
 	}
-}
 
+	return done
+}

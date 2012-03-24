@@ -1,10 +1,15 @@
-#version 130
+#version 140
 
 in  vec2 texCoord;
 out vec4 fragColor;
 
 uniform float time;
-uniform isampler1D voxels;
+uniform isamplerBuffer voxels;
+uniform int size;
+
+uniform struct {
+	vec3 pos, dir, up, left;
+} cam;
 
 vec3 rotateX(vec3 p, float a)
 {
@@ -71,7 +76,7 @@ vec3 face(vec3 p, vec3 d, float off, float size, int axis, out bool hit)
 
 vec3 boundingBox(vec3 p, vec3 d, out bool hit)
 {
-	const float size = 16.0;
+	float size = ::size;
 
 	// inside the box
 	if(	p.x >= 0.0 && p.x <= size &&
@@ -116,11 +121,12 @@ struct vox {
 	float size;
 	float alpha;
 	int x, y, z;
+	int steps;
 };
 
 int get(int x, int y, int z, out int size)
 {
-	const int max = 10;
+	const int max = 8;
 	const int max2 = 8;
 
 	size = 1;
@@ -135,33 +141,50 @@ int get(int x, int y, int z, out int size)
 
 int octree(int x, int y, int z, out int size)
 {
-	ivec4 idx = texelFetch(voxels, 0, 0);
+	size = ::size;
 
-	if(idx.x == 1 || idx.y == 1 || idx.z == 1 || idx.w == 1) {
-		return 1;
+	if(x < 0 || x >= size || y < 0 || y >= size || z < 0 || z >= size) {
+		return 0;
 	}
 
-	return idx.x;
+	int steps = 0;
+	int i = 0, off = 0;
+	while(size > 1) {
+		steps++;
+
+		size >>= 1;
+		off = 0;
+
+		if(z >= size) { off += 4; z -= size; }
+		if(y >= size) { off += 2; y -= size; }
+		if(x >= size) { off += 1; x -= size; }
+
+		i = texelFetch(voxels, (i<<3) + off).r;
+		if(i <= 0) {
+			return -i;
+		}
+	}
+
+	return 0;
 }
 
 vox voxel(vec3 pos, vec3 dir)
 {
-	int x = int(floor(pos.x));
-	int y = int(floor(pos.y));
-	int z = int(floor(pos.z));
+	int x = int(pos.x);
+	int y = int(pos.y);
+	int z = int(pos.z);
 
 	if(dir.x < 0.0 && abs(fract(pos.x)) == 0.0) { x--; }
 	if(dir.y < 0.0 && abs(fract(pos.y)) == 0.0) { y--; }
 	if(dir.z < 0.0 && abs(fract(pos.z)) == 0.0) { z--; }
 
 	int s;
-	int val = get(x, y, z, s);
-	//int val = octree(x, y, z, s);
+	int val = octree(x, y, z, s);
 
 	float size = float(s) * .5;
-	vec3 center = vec3(x, y, z) + vec3(size);
+	vec3 center = vec3(x/s*s, y/s*s, z/s*s) + vec3(size);
 	vec3 dist = pos - center;
-	vox v = vox(dist, size, float(val), x, y, z);
+	vox v = vox(dist, size, float(val), x/s*s, y/s*s, z/s*s, val);
 
 	return v;
 }
@@ -181,9 +204,10 @@ vec3 trace(vec3 o, vec3 d, out vec3 n, out bool hit, out vox v)
 	if(!hit) { return o; }
 	hit = false;
 
-	const int maxSteps = 40;
+	const int maxSteps = 80; //31;
 	for(int i = 0; i < maxSteps; i++) {
 		v = voxel(pos, s);
+		v.steps = i;
 		if(v.alpha > 0.0) {
 			n *= s;
 			hit = true;
@@ -195,7 +219,7 @@ vec3 trace(vec3 o, vec3 d, out vec3 n, out bool hit, out vox v)
 
 		float fmin = 100.0;
 		if(f.x > 0.0 && f.x < fmin) { fmin = f.x; n = nx; }
-		if(f.y > 0.0 && f.y < fmin) { fmin = f.y; n = -ny; }
+		if(f.y > 0.0 && f.y < fmin) { fmin = f.y; n = ny; }
 		if(f.z > 0.0 && f.z < fmin) { fmin = f.z; n = nz; }
 
 		pos = pos + d*fmin;
@@ -212,33 +236,45 @@ vec3 background(vec3 d)
 vec3 shade(vec3 pos, vec3 n, vec3 eyePos, vox voxel)
 {
 	const vec3 color = vec3(2.0, 1.5, 1.2);
-    const vec3 lightPos = vec3(-2.0, 6.0,-4.0);
-    const float shininess = 30.0;
+    const vec3 lightPos = vec3( 3000.0,-3000.0, 3000.0);
+    const float shininess = 130.0;
 
     vec3 l = normalize(lightPos - pos);
     vec3 v = normalize(eyePos - pos);
     vec3 h = normalize(v + l);
     float diff = dot(n, l);
     float spec = max(0.0, pow(dot(n, h), shininess)) * float(diff > 0.0);
-    diff = 0.5+0.5*diff;
+    diff = 0.6+0.4*diff;
 
-	if(voxel.alpha == 0.0) { return vec3(0, 1, 0); }
+	//if(voxel.size > 1) { return vec3(0, voxel.size*0.001, 0); }
 
-	//vec3 rgb = abs(voxel.dist)*2;
-	vec3 rgb = vec3(voxel.x, voxel.y, voxel.z)*.20;
-	//vec3 rgb = vec3(voxel.alpha*.000000001);
-	//if(length(voxel.dist) > .70) { rgb = vec3(0, 0, 0); }
+	vec3 green = vec3(0.0, 1.6, 0.0);
+	vec3 red = vec3(1.0, 0.0, 0.0);
+	vec3 blue = vec3(0.0, 0.0, 0.6);
+	vec3 yellow = vec3(1.0, 1.0, 0.0);
+	vec3 rgb = mix(green, blue, voxel.steps*0.045);
+	if(voxel.steps > 20) {
+		rgb = mix(red, yellow, (voxel.steps-20)*0.09);
+	}
+
+	//vec3 rgb = abs(voxel.dist)*29;
+	//vec3 rgb = vec3(0, voxel.alpha*1.5, 0)*1.7;
+	//if(voxel.alpha == 8) { discard; }
+	//vec3 rgb = vec3(voxel.size*2.0);
+	//if(length(voxel.dist) > 0.55) { rgb = vec3(0, 0, 0.0); }
+	//vec3 rgb = vec3(voxel.x, voxel.y, voxel.z)*.0012;
 	return rgb * diff + spec;
 }
 
 void main(void)
 {
-	vec3 o = vec3(-1.0, 7.0, -15.5);
-	vec3 d = normalize(vec3(texCoord.x, texCoord.y, 2.0));
-	d = rotateX(d, .3);
+	vec3 o = cam.pos + vec3(-1260.0, 1000.0, 500.0);
+	vec3 d = normalize(
+		cam.dir*2.0 + cam.left*texCoord.x + cam.up*texCoord.y);
+	d = rotateY(d, 3.40);
 
 #if 1
-    float a = sin(time*0.4)*1.4+3.9;
+    float a = sin(time*0.4)*0.001+1.8099;
     o = rotateY(o, a);
     d = rotateY(d, a);
 #endif
