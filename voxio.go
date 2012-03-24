@@ -1,7 +1,6 @@
 package glvox
 
 import (
-//	"fmt"
 	"bufio"
 	"io"
 	"os"
@@ -10,7 +9,7 @@ import (
 	"errors"
 )
 
-func ReadBinvox(filename string, voxels DimSetter) (err error) {
+func ReadBinvox(filename string, voxels Setter, offx, offy, offz int32) (err error) {
 
 	f, err := os.Open(filename)
 	if err != nil { return }
@@ -54,8 +53,6 @@ func ReadBinvox(filename string, voxels DimSetter) (err error) {
 		return
 	}
 
-	voxels.Dim(int32(w), int32(h), int32(d))
-
 	x, y, z := int32(0), int32(0), int32(0)
 	for {
 		var val, cnt byte
@@ -73,7 +70,7 @@ func ReadBinvox(filename string, voxels DimSetter) (err error) {
 
 		for i := 0; i < int(cnt); i++ {
 
-			voxels.Set(x, y, z, int32(val))
+			voxels.Set(offx + x, offy + y, offz + z, int32(val))
 
 			x++
 			if x >= int32(w) {
