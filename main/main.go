@@ -101,7 +101,7 @@ func initVoxels() {
 
 	sizeLoc := prg.GetUniformLocation("size")
 	sizeLoc.Uniform1i(int(voxels.WHD))
-	fmt.Println("voxel data uploaded:", len(voxels.Index)*8*4/1024/1024, "MiB")
+	fmt.Println("voxel data uploaded:", len(voxels.Index)*4/1024/1024, "MiB")
 }
 
 func initShaders() {
