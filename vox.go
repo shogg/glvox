@@ -207,15 +207,15 @@ func (oct *Octree) Set(x, y, z int32, v int32) {
 		if y >= whd { off += 2; y -= whd }
 		if x >= whd { off += 1; x -= whd }
 
-		idx := oct.Index[i*8 + off]
+		idx := oct.Index[i<<3 + off]
 		if -idx == v { return }
 
 		if idx <= 0 {
 			if whd > 1 {
 				idx = oct.newIndex(idx)
-				oct.Index[i*8 + off] = idx
+				oct.Index[i<<3 + off] = idx
 			} else {
-				oct.Index[i*8 + off] = -v
+				oct.Index[i<<3 + off] = -v
 				return
 			}
 		}
@@ -238,12 +238,15 @@ func (oct *Octree) String() string {
 			0x1b, -n, 0x1b)
 	}
 
+	length := len(oct.Index) / 8
+	if length > 100 { length = 100 }
+
 	s := ""
-	for i := 0; i < len(oct.Index) / 8; i++ {
-		idx := oct.Index[i*8]
+	for i := 0; i < length; i++ {
+		idx := oct.Index[i<<3]
 		s += fmt.Sprint(i, ": [", printer(idx))
 		for o := 1; o < 8; o++ {
-			idx := oct.Index[i*8 + o]
+			idx := oct.Index[i<<3 + o]
 			s += fmt.Sprint(", ", printer(idx))
 		}
 		s += "]\n"
