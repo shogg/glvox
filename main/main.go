@@ -23,6 +23,7 @@ var (
 	prg0 = gl.Program(0)
 	prg gl.Program
 	lastModified time.Time
+	shadowOff bool
 
 	cam *glvox.Cam = glvox.NewCam()
 
@@ -67,6 +68,8 @@ func main() {
 		panic("gl error")
 	}
 
+	cam.Yaw(3.14)
+
 	initGl()
 	initShaders()
 	initVoxels()
@@ -80,7 +83,7 @@ func initVoxels() {
 	voxels := glvox.NewOctree()
 	voxels.Dim(s, s, s)
 
-	glvox.ReadBinvox("skull.binvox", voxels, 896, 896, 896)
+	glvox.ReadBinvox("skull256.binvox", voxels, 896, 896, 896)
 
 	data := voxels.Index
 	buf := gl.GenBuffer()
@@ -217,7 +220,9 @@ func mainLoop() {
 				break
 			case *sdl.KeyboardEvent:
 				keyEvent := e.(*sdl.KeyboardEvent)
-				done = handleKey(keyEvent)
+				if keyEvent.Type == sdl.KEYDOWN {
+					done = handleKey(keyEvent)
+				}
 			}
 		}
 
@@ -242,6 +247,10 @@ func updateShaderParams() {
 
 	camLeft := prg.GetUniformLocation("cam.left")
 	camLeft.Uniform3f(cam.Left.X, cam.Left.Y, cam.Left.Z)
+
+	shadow := prg.GetUniformLocation("shadowOff")
+	soff := 0; if shadowOff { soff = 1 }
+	shadow.Uniform1i(soff)
 }
 
 func handleKey(e *sdl.KeyboardEvent) (done bool) {
@@ -257,6 +266,8 @@ func handleKey(e *sdl.KeyboardEvent) (done bool) {
 	}
 
 	switch key {
+	case sdl.K_s:
+		shadowOff = !shadowOff
 	case sdl.K_LEFT:
 		if mod & sdl.KMOD_LCTRL != 0 {
 			cam.Yaw(-.05)
