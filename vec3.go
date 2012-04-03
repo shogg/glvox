@@ -35,6 +35,10 @@ func (a Vec3) Minus(b Vec3) Vec3 {
 	return Vec3 { a.X-b.X, a.Y-b.Y, a.Z-b.Z }
 }
 
+func (a Vec3) Mulv(b Vec3) Vec3 {
+	return Vec3 { a.X*b.X, a.Y*b.Y, a.Z*b.Z }
+}
+
 func (a Vec3) Mul(f float32) Vec3 {
 	return Vec3 { a.X*f, a.Y*f, a.Z*f }
 }
@@ -45,6 +49,41 @@ func (a Vec3) Norm() float32 {
 
 func (a Vec3) Normalize() Vec3 {
 	return a.Mul(1.0/a.Norm())
+}
+
+func (a Vec3) Floor() Vec3 {
+	return Vec3 {
+		float32(math.Floor(float64(a.X))),
+		float32(math.Floor(float64(a.Y))),
+		float32(math.Floor(float64(a.Z))) }
+}
+
+func (a Vec3) Ceil() Vec3 {
+	return Vec3 {
+		float32(math.Ceil(float64(a.X))),
+		float32(math.Ceil(float64(a.Y))),
+		float32(math.Ceil(float64(a.Z))) }
+}
+
+func (a Vec3) Nexttoward(b Vec3) Vec3 {
+	return Vec3 {
+		float32(math.Nextafter(float64(a.X), float64(b.X))),
+		float32(math.Nextafter(float64(a.Y), float64(b.Y))),
+		float32(math.Nextafter(float64(a.Z), float64(b.Z))) }
+}
+
+func (a Vec3) Clamp(l, h Vec3) Vec3 {
+
+	x := a.X
+	if x < l.X { x = l.X }; if x > h.X { x = h.X }
+
+	y := a.Y
+	if y < l.Y { y = l.Y }; if y > h.Y { y = h.Y }
+
+	z := a.Z
+	if z < l.Z { z = l.Z }; if z > h.Z { z = h.Z }
+
+	return Vec3 { x, y, z }
 }
 
 func NewQuat(r float32, v Vec3) (q Quat) {
@@ -61,15 +100,15 @@ func (q Quat) Mat3() (m Mat3) {
 	n := q.R*q.R + q.X*q.X + q.Y*q.Y + q.Z*q.Z
 	s := float32(0.0); if n > 0.0 { s = 2.0 / n }
 
-	xs, ys, zs := q.X*s,  q.Y*s,  q.Z*s
+	x2, y2, z2 := q.X*s,  q.Y*s,  q.Z*s
 
-	wx, wy, wz := q.R*xs, q.R*ys, q.R*zs
-	xx, xy, xz := q.X*xs, q.X*ys, q.X*zs
-	yy, yz, zz := q.Y*ys, q.Y*zs, q.Z*zs
+	rx, ry, rz := q.R*x2, q.R*y2, q.R*z2
+	xx, xy, xz := q.X*x2, q.X*y2, q.X*z2
+	yy, yz, zz := q.Y*y2, q.Y*z2, q.Z*z2
 
-	m[0], m[1], m[2] = 1.0 - yy - zz,	xy - wz,		xz + wy
-	m[3], m[4], m[5] = xy + wz,			1.0 - xx - zz,	yz - wx
-	m[6], m[7], m[8] = xz - wy,			yz + wx,		1.0 - xx - yy
+	m[0], m[1], m[2] = 1.0 - yy - zz,	xy - rz,		xz + ry
+	m[3], m[4], m[5] = xy + rz,			1.0 - xx - zz,	yz - rx
+	m[6], m[7], m[8] = xz - ry,			yz + rx,		1.0 - xx - yy
 
 	return m
 }
