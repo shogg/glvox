@@ -9,7 +9,8 @@ import (
 	"errors"
 )
 
-func ReadBinvox(filename string, voxels Setter, offx, offy, offz int32) (err error) {
+func ReadBinvox(filename string, voxels GetSetter,
+	offx, offy, offz int) (err error) {
 
 	f, err := os.Open(filename)
 	if err != nil { return }
@@ -53,7 +54,7 @@ func ReadBinvox(filename string, voxels Setter, offx, offy, offz int32) (err err
 		return
 	}
 
-	x, y, z := int32(0), int32(0), int32(0)
+	x, y, z := 0, 0, 0
 	for {
 		var val, cnt byte
 
@@ -70,18 +71,32 @@ func ReadBinvox(filename string, voxels Setter, offx, offy, offz int32) (err err
 
 		for i := 0; i < int(cnt); i++ {
 
-			voxels.Set(offx + x, offy + y, offz + z, int32(val))
-
+			voxels.Set(offx + x, offy + y, offz + z, int(val))
+/*			if val == 1 {
+				updateDensity(voxels, offx + x, offy + y, offz + z)
+			}
+*/
 			x++
-			if x >= int32(w) {
+			if x >= w {
 				x = 0; y++
-				if y >= int32(h) {
+				if y >= h {
 					y = 0; z++
-					if z >= int32(d) { /* error */ }
+					if z >= d { /* error */ }
 				}
 			}
 		}
 	}
 
 	return
+}
+
+func updateDensity(voxels GetSetter, x, y, z int) {
+	for k := z - 1; k <= z + 1; k++ {
+		for j := y - 1; j <= y + 1; j++ {
+			for i := x - 1; i <= x + 1; i++ {
+				val, _ := voxels.Get(i, j, k)
+				voxels.Set(i, j, k, val+1)
+			}
+		}
+	}
 }

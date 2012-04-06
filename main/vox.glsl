@@ -121,24 +121,9 @@ struct vox {
 	vec3 dist;
 	float size;
 	float alpha;
-	int x, y, z;
+	ivec3 coord;
 	int steps;
 };
-
-int get(int x, int y, int z, out int size)
-{
-	const int max = 8;
-	const int max2 = 8;
-
-	size = 1;
-	if(	x < 0 || x >= max2 ||
-		y < 0 || y >= max2 ||
-		z < 0 || z >= max2) { return 0; }
-
-	if(+x+y+z < max) { return 1; }
-
-	return 0;
-}
 
 int octree(int x, int y, int z, out int size)
 {
@@ -175,20 +160,78 @@ vox voxel(vec3 pos, vec3 dir)
 	int y = int(pos.y);
 	int z = int(pos.z);
 
-	if(dir.x < 0.0 && abs(fract(pos.x)) == 0.0) { x--; }
-	if(dir.y < 0.0 && abs(fract(pos.y)) == 0.0) { y--; }
-	if(dir.z < 0.0 && abs(fract(pos.z)) == 0.0) { z--; }
+	if(dir.x < 0.0 && (fract(pos.x)) == 0.0) { x--; }
+	if(dir.y < 0.0 && (fract(pos.y)) == 0.0) { y--; }
+	if(dir.z < 0.0 && (fract(pos.z)) == 0.0) { z--; }
 
 	int s;
 	int val = octree(x, y, z, s);
 
+	ivec3 coord = ivec3(x, y, z)/s*s;
+
 	float size = float(s) * .5;
-	vec3 center = vec3(x/s*s, y/s*s, z/s*s) + vec3(size);
+	vec3 center = coord + vec3(size);
 	vec3 dist = pos - center;
-	vox v = vox(dist, size, float(val), x/s*s, y/s*s, z/s*s, val);
+	vox v = vox(dist, size, float(val), coord, val);
 
 	return v;
 }
+
+vec3 normal(vec3 pos, vec3 dir)
+{
+	int x = int(pos.x);
+	int y = int(pos.y);
+	int z = int(pos.z);
+
+	if(dir.x < 0.0 && (fract(pos.x)) == 0.0) { x--; }
+	if(dir.y < 0.0 && (fract(pos.y)) == 0.0) { y--; }
+	if(dir.z < 0.0 && (fract(pos.z)) == 0.0) { z--; }
+
+	int s;
+	int density = octree(x, y, z, s);
+	float dx0 = octree(x-1, y, z, s) - density;
+	float dy0 = octree(x, y-1, z, s) - density;
+	float dz0 = octree(x, y, z-1, s) - density;
+	vec3 n0 = normalize(vec3(dx0, dy0, dz0));
+
+	float dx1 = density - octree(x+1, y, z, s);
+	float dy1 = density - octree(x, y+1, z, s);
+	float dz1 = density - octree(x, y, z+1, s);
+	vec3 n1 = normalize(vec3(dx1, dy1, dz1));
+
+	vec3 n = mix(n0, n1, fract(pos));
+	return n;
+
+/*
+	float dx = octree(x-1, y, z, s) - octree(x+1, y, z, s);
+	float dy = octree(x, y-1, z, s) - octree(x, y+1, z, s);
+	float dz = octree(x, y, z-1, s) - octree(x, y, z+1, s);
+
+	vec3 n = normalize(vec3(dx, dy, dz));
+	return n;
+*/
+}
+
+bool box(vec3 pos, vec3 dir, out float t0, out float t1)
+{
+	int size = ::size;
+
+	vec3 boxMin = vec3(0.0);
+	vec3 boxMax = vec3(size);
+
+	vec3 invR = 1.0 / dir;
+	vec3 tbot = invR * (boxMin - pos);
+	vec3 ttop = invR * (boxMax - pos);
+	vec3 tmin = min(ttop, tbot);
+	vec3 tmax = max(ttop, tbot);
+
+	vec2 t = max(tmin.xx, tmin.yz);
+	t0 = max(t.x, t.y);
+	t = min(tmax.xx, tmax.yz);
+	t1 = min(t.x, t.y);
+
+	return t0 <= t1;
+} 
 
 vec3 trace(vec3 o, vec3 d, out vec3 n, out bool hit, out vox v)
 {
@@ -203,22 +246,29 @@ vec3 trace(vec3 o, vec3 d, out vec3 n, out bool hit, out vox v)
 /*
 	vec3 pos = boundingBox(o, d, hit);
 	if(!hit) { return o; }
+
+	float t0, t1;
+	hit = box(o, d, t0, t1);
+	if(!hit) { return o; }
+
+	vec3 pos = o + d * t0;
+	vec3 posEnd = o + d * t1;
 */
 	vec3 pos = o;
 	hit = false;
 
-	const int maxSteps = 51;
+	const int maxSteps = 31;
 	for(int i = 0; i < maxSteps; i++) {
 		v = voxel(pos, s);
 		v.steps = i;
 		if(v.alpha > 0.0) {
 			n *= -s;
+			//n = normal(pos, s);
 			hit = true;
 			return pos;
 		}
 
-		vec3 f = s*vec3(v.size) - v.dist;
-		f.x /= d.x; f.y /= d.y; f.z /= d.z;
+		vec3 f = (s*vec3(v.size) - v.dist) / d;
 
 		float fmin = 100.0;
 		if(f.x > 0.0 && f.x < fmin) { fmin = f.x; n = nx; }
@@ -238,7 +288,6 @@ vec3 background(vec3 d)
 /*
 float ambientOcclusion(vec3 pos, vox v)
 {
-
 }
 */
 float shadow(vec3 pos, vec3 lightPos)
@@ -269,23 +318,7 @@ vec3 shade(vec3 pos, vec3 n, vec3 eyePos, vox voxel)
 
 	float shadow = shadowOff ? 1.0 : shadow(pos, lightPos);
 
-	//if(voxel.size > 1) { return vec3(0, voxel.size*0.001, 0); }
-/*
-	vec3 green = vec3(0.0, 1.6, 0.0);
-	vec3 red = vec3(1.0, 0.0, 0.0);
-	vec3 blue = vec3(0.0, 0.0, 0.6);
-	vec3 yellow = vec3(1.0, 1.0, 0.0);
-	vec3 rgb = mix(green, blue, voxel.steps*0.045);
-	if(voxel.steps > 20) {
-		rgb = mix(red, yellow, (voxel.steps-20)*0.09);
-	}
-*/
-	//vec3 rgb = shadow * abs(voxel.dist)*1.7;
-	//vec3 rgb = vec3(0, voxel.alpha*1.5, 0)*1.7;
-	//if(voxel.alpha == 8) { discard; }
-	//vec3 rgb = vec3(voxel.size*2.0);
-	//if(length(voxel.dist) > 0.55) { rgb = vec3(0, 0, 0.0); }
-	vec3 rgb = shadow * vec3(voxel.x, voxel.y, voxel.z)*.0008;
+	vec3 rgb = shadow * vec3(voxel.coord.x, voxel.coord.y, voxel.coord.z)*.0008;
 	return rgb * diff; // + spec;
 }
 

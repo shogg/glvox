@@ -78,12 +78,11 @@ func main() {
 
 func initVoxels() {
 
-	s := int32(164096)
+	s := 164096
 
-	voxels := glvox.NewOctree()
-	voxels.Dim(s, s, s)
+	voxels := glvox.NewOctree(s)
 
-	glvox.ReadBinvox("skull256.binvox", voxels, 896, 896, 896)
+	glvox.ReadBinvox("../res/skull256.binvox", voxels, 896, 896, 896)
 
 	data := voxels.Index
 	buf := gl.GenBuffer()
@@ -103,7 +102,7 @@ func initVoxels() {
 	fmt.Println("max texture buffer size:", value[0]/1024/1024, "MiB")
 
 	sizeLoc := prg.GetUniformLocation("size")
-	sizeLoc.Uniform1i(int(voxels.WHD))
+	sizeLoc.Uniform1i(int(voxels.Size))
 	fmt.Println("voxel data uploaded:", len(voxels.Index)*4/1024/1024, "MiB")
 }
 
@@ -270,25 +269,25 @@ func handleKey(e *sdl.KeyboardEvent) (done bool) {
 		shadowOff = !shadowOff
 	case sdl.K_LEFT:
 		if mod & sdl.KMOD_LCTRL != 0 {
-			cam.Yaw(-.05)
+			cam.Yaw(-.02)
 		} else {
 			cam.Strafe(d)
 		}
 	case sdl.K_RIGHT:
 		if mod & sdl.KMOD_LCTRL != 0 {
-			cam.Yaw( .05)
+			cam.Yaw( .02)
 		} else {
 			cam.Strafe(-1.0*d)
 		}
 	case sdl.K_UP:
 		if mod & sdl.KMOD_LCTRL != 0 {
-			cam.Pitch( .05)
+			cam.Pitch( .02)
 		} else {
 			cam.Move(d)
 		}
 	case sdl.K_DOWN:
 		if mod & sdl.KMOD_LCTRL != 0 {
-			cam.Pitch(-.05)
+			cam.Pitch(-.02)
 		} else {
 			cam.Move(-1.0*d)
 		}
