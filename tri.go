@@ -17,9 +17,31 @@ func (tri *Tri) SqrDistance(p Vec3) float32 {
 	e := E1.Dot(D)
 	f := D.Dot(D)
 
+	s, t := solve(a, b, c, d, e, f)
+	dist := a*s*s + 2.0*b*s*t + c*t*t + 2.0*d*s + 2.0*e*t + f
+
+	if planeDistance(B, E0, E1, p) < 0 {
+		dist = -dist
+	}
+
+	return dist
+}
+
+func planeDistance(B, E0, E1 Vec3, p Vec3) float32 {
+
+	// hesse normal form
+	n0 := E0.Cross(E1).Normalize()
+	d := B.Dot(n0)
+
+	dist := p.Dot(n0) - d
+	return dist
+}
+
+func solve(a, b, c, d, e, f float32) (s, t float32) {
+
 	det := a*c - b*b
-	s := b*e - c*d
-	t := b*d - a*e
+	s = b*e - c*d
+	t = b*d - a*e
 
 	if s+t <= det {
 		if s < 0.0 {
@@ -166,6 +188,5 @@ func (tri *Tri) SqrDistance(p Vec3) float32 {
 		}
 	}
 
-	dist := a*s*s + 2.0*b*s*t + c*t*t + 2.0*d*s + 2.0*e*t + f
-	return dist
+	return s, t
 }
